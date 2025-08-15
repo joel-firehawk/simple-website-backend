@@ -140,36 +140,31 @@ app.delete('/users/delete/:id', async (req, res) => {
 
 
 // PHOTO POST API
-app.post('/upload', upload.single('image'), (req, res) => {
+app.post('/upload-image', upload.single('image'), async (req, res) => {
     if (!req.file) {
-        return res.status(400).send('No image uploaded.');
+        return res.status(400).send('No file uploaded.');
     }
 
-    const blob = bucket.file(Date.now() + '-' + req.file.originalname); // Unique filename
-    const blobStream = blob.createWriteStream({
+    const fileName = Date.now() + '-' + req.file.originalname;
+    const file = bucket.file(fileName);
+
+    const stream = file.createWriteStream({
         metadata: {
-        contentType: req.file.mimetype
-        }
+            contentType: req.file.mimetype,
+        },
     });
 
-    blobStream.on('error', (err) => {
+    stream.on('error', (err) => {
         console.error(err);
         res.status(500).send('Error uploading image.');
     });
 
-    blobStream.on('finish', async () => {
-        try {
-            // Get the public URL of the uploaded image
-            const [url] = await blob.getSignedUrl({
-                action: 'read',
-                expires: '03-09-2491', // Set an appropriate expiry date
-            });
-            res.status(200).send({ message: 'Image uploaded successfully!', imageUrl: url });
-        } catch (error) {
-            console.error(error);
-            res.status(500).send('Error getting download URL.');
-        }
+    stream.on('finish', async () => {
+        // Optionally, make the file public and get its URL
+        await file.makePublic();
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+        res.status(200).send({ message: 'Image uploaded successfully!', url: publicUrl });
     });
 
-    blobStream.end(req.file.buffer);
+    stream.end(req.file.buffer);
 });
