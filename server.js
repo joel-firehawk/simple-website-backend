@@ -2,6 +2,7 @@ import admin from "firebase-admin";
 import express from "express";
 import fs from "fs";
 import cors from "cors";
+import multer from "multer";
 
 const serviceAccount = JSON.parse(fs.readFileSync('./key.json', 'utf-8'));
 admin.initializeApp({
@@ -17,6 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 const PORT = process.env.PORT || 8080;
 const db = admin.firestore();
 const storage = admin.storage().bucket();
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.listen(PORT, () => {
     console.log(`Server is running on PORT ${PORT}`)
@@ -48,7 +50,7 @@ app.get('/users/get', async (req, res) => {
 });
 
 
-// POST API
+// USER POST API
 app.post('/users/post', async (req, res) => {
     try {   
         const userJson = {
@@ -136,3 +138,38 @@ app.delete('/users/delete/:id', async (req, res) => {
     }
 });
 
+
+// PHOTO POST API
+app.post('/upload', upload.single('image'), (req, res) => {
+    if (!req.file) {
+        return res.status(400).send("No image uploaded");
+    }
+
+    const blob = bucket.file(Date.now() + '-' + req.file.originalname); // Unique filename
+
+    const blobStream = blob.createWriteStream({
+        metadata: {
+            contentType: req.file.mimetype
+        }
+    });
+
+    blobStream.on('error', (err) => {
+        console.error(err);
+        res.status(500).send("Error uploading image");
+    });
+
+    blobStream.on('finish', async () => {
+        try {
+            const [url] = await blob.getSignedUrl({
+                action: 'read',
+                expires: '09-09-2025'
+            });
+            res.status(200).send({ message: 'Image uploaded successfully!', imageUrl: url });
+        } catch(error) {
+            console.error(error);
+            res.status(500).send('Error getting download url');
+        }
+    });
+
+    blobStream.end(req.file.buffer);
+});
