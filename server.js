@@ -142,32 +142,32 @@ app.delete('/users/delete/:id', async (req, res) => {
 // PHOTO POST API
 app.post('/upload', upload.single('image'), (req, res) => {
     if (!req.file) {
-        return res.status(400).send("No image uploaded");
+        return res.status(400).send('No image uploaded.');
     }
 
     const blob = bucket.file(Date.now() + '-' + req.file.originalname); // Unique filename
-
     const blobStream = blob.createWriteStream({
         metadata: {
-            contentType: req.file.mimetype
+        contentType: req.file.mimetype
         }
     });
 
     blobStream.on('error', (err) => {
         console.error(err);
-        res.status(500).send("Error uploading image");
+        res.status(500).send('Error uploading image.');
     });
 
     blobStream.on('finish', async () => {
         try {
+            // Get the public URL of the uploaded image
             const [url] = await blob.getSignedUrl({
                 action: 'read',
-                expires: '09-09-2025'
+                expires: '03-09-2491', // Set an appropriate expiry date
             });
             res.status(200).send({ message: 'Image uploaded successfully!', imageUrl: url });
-        } catch(error) {
+        } catch (error) {
             console.error(error);
-            res.status(500).send('Error getting download url');
+            res.status(500).send('Error getting download URL.');
         }
     });
 
